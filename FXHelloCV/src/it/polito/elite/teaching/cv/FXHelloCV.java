@@ -6,8 +6,11 @@ import javafx.application.Application;
 import javafx.event.EventHandler;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.fxml.FXMLLoader;
 
 /**
@@ -30,9 +33,9 @@ public class FXHelloCV extends Application
 			// load the FXML resource
 			FXMLLoader loader = new FXMLLoader(getClass().getResource("FXHelloCV.fxml"));
 			// store the root element so that the controllers can use it
-			BorderPane rootElement = (BorderPane) loader.load();
+			GridPane rootElement = (GridPane)loader.load();
 			// create and style a scene
-			Scene scene = new Scene(rootElement, 800, 600);
+			Scene scene = new Scene(rootElement, 1000, 800);
 			scene.getStylesheets().add(getClass().getResource("application.css").toExternalForm());
 			// create the stage with the given title and the previously created
 			// scene
@@ -43,6 +46,18 @@ public class FXHelloCV extends Application
 			
 			// set the proper behavior on closing the application
 			FXHelloCVController controller = loader.getController();
+			
+			try {
+				//define startup behaviour
+				controller.loadAndShowTemplate();
+				controller.loadAndShowImage();
+				controller.startCamera();
+			}
+			catch (Exception e) {
+				System.err.println(e.getMessage());
+			}
+			
+			
 			primaryStage.setOnCloseRequest((new EventHandler<WindowEvent>() {
 				public void handle(WindowEvent we)
 				{
