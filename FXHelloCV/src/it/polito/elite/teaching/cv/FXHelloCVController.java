@@ -61,12 +61,9 @@ public class FXHelloCVController
 	private Mat grey_testImg = new Mat();
 	private Mat result = new Mat();
 	
-
-	
 	
 	public void loadAndShowImage() {
 		this.testImg = Imgcodecs.imread("resources/scene4.jpg");
-//		Imgproc.cvtColor(imgLoad, this.testImg, Imgproc.COLOR_BGR2GRAY);
 		if (this.testImg == null) {
 			System.out.println("could not load image");
 		}
@@ -82,53 +79,72 @@ public class FXHelloCVController
 	
 	public void loadAndShowTemplate() {
 		Mat templLoad = new Mat();
-		templLoad = Imgcodecs.imread("resources/temp4.jpg");
+		templLoad = Imgcodecs.imread("resources/temp3s.jpg");
 		Imgproc.cvtColor(templLoad, this.templateImg, Imgproc.COLOR_BGR2GRAY);
 		if (this.templateImg == null) {
 			System.out.println("could not load template");
 		}
 		else {
 			System.out.println("Template loaded succesfully");
-			
 			Image imageToShow = Utils.mat2Image(this.templateImg);
 			updateImageView(templatePanel, imageToShow);
 		}
 	}
 	
+	private Point findTemplate(Mat inputImage, Mat template, Mat returnResult) {
+		
+		long startTime = System.nanoTime();
+		
+		
+		//scale down until good match found or too small
+		//threshold...1300000?
+		
+		
+		//create grey version of color input
+		Imgproc.cvtColor(inputImage, this.grey_testImg , Imgproc.COLOR_BGR2GRAY);
+		
+		//create result matrix
+		result.create(this.grey_testImg.rows() - template.rows() + 1, this.grey_testImg.cols() - template.cols() + 1, CvType.CV_8U);
+		
+		//template matching
+		int match_method = Imgproc.TM_CCOEFF;
+		Imgproc.matchTemplate(this.grey_testImg, template, result, Imgproc.TM_CCOEFF);
+		Core.MinMaxLocResult minMaxLocResult = Core.minMaxLoc(result, new Mat());
+		Core.normalize(result, result, 0, 1, Core.NORM_MINMAX, -1, new Mat());
+		
+		System.out.println("Max val = " + minMaxLocResult.maxVal);
+
+		//multiply result for viewing
+		Core.multiply(result, new Scalar(255), returnResult);
+		
+		//report time
+//		System.out.println("Execution of image processing: " + (System.nanoTime() - startTime)/1000000 + " ms");
+		
+		//return point
+		if( match_method  == Imgproc.TM_SQDIFF || match_method == Imgproc.TM_SQDIFF_NORMED )
+			return minMaxLocResult.minLoc;
+		else
+			return minMaxLocResult.maxLoc;
+	}
+	
 	private void processImage(Mat img) {
 		long startTime = System.nanoTime();
 		
-//		System.out.println("Image size = " + testImg.cols() + ", " + testImg.rows());
-//		System.out.println("Template size = " + templateImg.cols() + ", " + templateImg.rows());
-		
-		//create grey versio of color input
-		Imgproc.cvtColor(this.testImg, this.grey_testImg , Imgproc.COLOR_BGR2GRAY);
-		
-		//create result matrix
-		result.create(this.grey_testImg.rows() - this.templateImg.rows() + 1, this.grey_testImg.cols() - this.templateImg.cols() + 1, CvType.CV_8U);
-		
-		//template matching
-		Imgproc.matchTemplate(this.grey_testImg, this.templateImg, result, Imgproc.TM_CCOEFF);
-		Core.normalize(result, result, 0, 1, Core.NORM_MINMAX, -1, new Mat());
-		Core.MinMaxLocResult minMaxLocResult = Core.minMaxLoc(result, new Mat());
-		System.out.println("Max val = " + minMaxLocResult.maxVal + ", Min = " + minMaxLocResult.minVal);
-		
-		
-		//draw min and max rectangles
-		Imgproc.rectangle(this.testImg, minMaxLocResult.maxLoc, new Point(minMaxLocResult.maxLoc.x + templateImg.cols(), minMaxLocResult.maxLoc.y + templateImg.rows()), new Scalar(255,0,0));
-		Imgproc.rectangle(this.testImg, minMaxLocResult.minLoc, new Point(minMaxLocResult.minLoc.x + templateImg.cols(), minMaxLocResult.minLoc.y + templateImg.rows()), new Scalar(0,0,255));
-		
-		//multiply result for viewing
-		Core.multiply(result, new Scalar(255), result);
-		
-		//convert to image and show
+		Mat response = new Mat();
+		Point maxPoint = findTemplate(this.testImg, this.templateImg, response);
+
+		//draw max rectangle
+		Imgproc.rectangle(this.testImg, maxPoint, new Point(maxPoint.x + templateImg.cols(), maxPoint.y + templateImg.rows()), new Scalar(0,0,255));
+
+		//convert response to image and show
 		MatOfByte byteMat = new MatOfByte();
-		Imgcodecs.imencode(".bmp", result, byteMat);
+		Imgcodecs.imencode(".bmp", response, byteMat);
 		Image imageToShow = new Image(new ByteArrayInputStream(byteMat.toArray()));
 		updateImageView(outputImgPanel, imageToShow);
 		
 		System.out.println("Execution of image processing: " + (System.nanoTime() - startTime)/1000000 + " ms");
 	}
+
 	
 	
 	/**
@@ -152,7 +168,7 @@ public class FXHelloCVController
 				// if the frame is not empty, process it
 				if (!frame.empty())
 				{
-					Imgproc.cvtColor(frame, frame, Imgproc.COLOR_BGR2GRAY);
+//					Imgproc.cvtColor(frame, frame, Imgproc.COLOR_BGR2GRAY);
 				}
 				
 			}
@@ -232,6 +248,14 @@ public class FXHelloCVController
 					{
 						// effectively grab and process a single frame
 						Mat frame = grabFrame();
+						
+						//find template in frame
+						
+						Point circle = findTemplate(frame, templateImg, new Mat());
+						//draw max rectangle
+						Imgproc.rectangle(frame, circle, new Point(circle.x + templateImg.cols(), circle.y + templateImg.rows()), new Scalar(0,0,255));
+						
+						
 						// convert and show the frame
 						Image imageToShow = Utils.mat2Image(frame);
 						updateImageView(camPanel, imageToShow);
