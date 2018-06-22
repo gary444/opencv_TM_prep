@@ -48,10 +48,7 @@ public class FXHelloCV extends Application
 			FXHelloCVController controller = loader.getController();
 			
 			try {
-				//define startup behaviour
-				controller.loadAndShowTemplate();
-				controller.loadAndShowImage();
-				controller.startCamera();
+				controller.initialise();
 			}
 			catch (Exception e) {
 				System.err.println(e.getMessage());

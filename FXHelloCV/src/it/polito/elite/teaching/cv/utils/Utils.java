@@ -37,7 +37,7 @@ public final class Utils
 		}
 		catch (Exception e)
 		{
-			System.err.println("Cannot convert the Mat obejct: " + e);
+			System.err.println("mat2Image: Cannot convert the Mat object: " + e);
 			return null;
 		}
 	}

@@ -66,169 +66,99 @@ public class FXHelloCVController
 	// the id of the camera to be used
 	private static int cameraId = 0;
 	
-	private Mat testImg = new Mat();
-	private Mat templateImg = new Mat();
-	private Mat warpedTemplate = new Mat();
-	private Mat grey_testImg = new Mat();
-	private Mat scaledImg = new Mat();
-	private Mat result = new Mat();
+	TemplateMatcher tempMatcher = new TemplateMatcher();
 	
+	public void initialise() {
+		
+		//static test image
+		Mat testImg = tempMatcher.loadTestImage();
+		System.out.println("img dims: " + testImg.cols() + " x " + testImg.rows());
+		processSingleImage(testImg);
+		
+		//start camera
+		startCamera();
+	}
 	
-	public void loadAndShowImage() {
-		this.testImg = Imgcodecs.imread("resources/scene4.jpg");
-		if (this.testImg == null) {
-			System.out.println("could not load image");
-		}
-		else {
-			System.out.println("Image loaded succesfully");
-			processImage(this.testImg);
-			// convert and show the frame
-			Image imageToShow = Utils.mat2Image(this.testImg);
+	private void processSingleImage(Mat img) {
+		long startTime = System.nanoTime();
+		
+		Mat response = new Mat(img.rows(), img.cols(), CvType.CV_8U);
+		
+		try {
+			Rect matchRect = tempMatcher.findTemplate(img, response);
+			//draw max rectangle
+			Imgproc.rectangle(img, matchRect.tl(), matchRect.br(), new Scalar(0,0,255));
+			
+			
+			
+			//show result
+			Image imageToShow = Utils.mat2Image(img);
 			updateImageView(inputImgPanel, imageToShow);
-		}
-		
-	}
-	
-	public void loadAndShowTemplate() {
-		Mat templLoad = new Mat();
-		templLoad = Imgcodecs.imread("resources/temp1s.jpg");
-		Imgproc.cvtColor(templLoad, this.templateImg, Imgproc.COLOR_BGR2GRAY);
-		if (this.templateImg == null) {
-			System.out.println("could not load template");
-		}
-		else {
-			System.out.println("Template loaded succesfully");
-			Image imageToShow = Utils.mat2Image(this.templateImg);
-			updateImageView(templatePanel, imageToShow);
-			
-			createWarpedTemplate();
-		}
-	}
-	
-	private void createWarpedTemplate() {
-		
-		//4 start points...
-		ArrayList<Point> srcPoints = new ArrayList<Point>();
-		srcPoints.add(new Point(0,0));
-		srcPoints.add(new Point(this.templateImg.width()-1,0));
-		srcPoints.add(new Point(this.templateImg.width()-1,this.templateImg.height()-1));
-		srcPoints.add(new Point(0,this.templateImg.height()-1));
-		
-		//4 end points to map the start points to
-		double warpWidth = (this.templateImg.width()-1) * 0.8;
-		double warpHeight = (this.templateImg.height()-1) * 1.0;
-		ArrayList<Point> dstPoints = new ArrayList<Point>();
-		dstPoints.add(new Point(0,0));
-		dstPoints.add(new Point(warpWidth,0));
-		dstPoints.add(new Point(warpWidth,warpHeight));
-		dstPoints.add(new Point(0,warpHeight));
-		
-		//convert to matrix
-		Mat srcMat = Converters.vector_Point2f_to_Mat(srcPoints);
-        Mat dstMat = Converters.vector_Point2f_to_Mat(dstPoints);
-        
-        Mat perspectiveTransformMat = Imgproc.getPerspectiveTransform(srcMat, dstMat);
-        
-        warpedTemplate = new Mat((int)warpHeight, (int)warpWidth, CvType.CV_8UC1);
-        
-        Imgproc.warpPerspective(this.templateImg, warpedTemplate, perspectiveTransformMat, new Size(warpWidth, warpHeight));
-        
-		
-		
 
-		Image imageToShow = Utils.mat2Image(warpedTemplate);
-		updateImageView(warpedTemplatePanel, imageToShow);
+			//convert response to image and show
+			MatOfByte byteMat = new MatOfByte();
+			Imgcodecs.imencode(".bmp", response, byteMat);
+			imageToShow = new Image(new ByteArrayInputStream(byteMat.toArray()));
+			updateImageView(outputImgPanel, imageToShow);
+			
+			System.out.println("Execution of single image processing: " + (System.nanoTime() - startTime)/1000000 + " ms");
+		}
+		catch (Exception e) {
+			System.err.println("procesSingleImage: " + e.getMessage());
+		}
+
+
 	}
+
 	
-	private Rect findTemplate(Mat inputImage, Mat template, Mat returnResult) {
-		
-		long startTime = System.nanoTime();
-		int match_method = Imgproc.TM_CCOEFF;
-		
-		//create grey version of color input
-		Imgproc.cvtColor(inputImage, this.grey_testImg , Imgproc.COLOR_BGR2GRAY);
-		
-		//scale down until good match found or too small
-		//threshold...1300000?
-		final double threshold = 3000000;
-		double peak;
-		boolean matchFound = false;
-		ArrayList<MaxLocScale> matches = new ArrayList<>();
-		float scale = 1.f;
-		float scaleStep = 0.1f;
-		for (scale = 1.f; scale >= 0.5 && matchFound == false; scale -= scaleStep) {
-			
-			//calc scaled size
-			Size matSize = new Size(this.grey_testImg.width() * scale, this.grey_testImg.height() * scale);
-			//resize
-			Imgproc.resize(this.grey_testImg, scaledImg, matSize);
-			//create result matrix
-			result.create(scaledImg.rows() - template.rows() + 1, scaledImg.cols() - template.cols() + 1, CvType.CV_8U);
-			
-			//template matching
-			Imgproc.matchTemplate(scaledImg, template, result, match_method);
-			MaxLocScale minMaxLocResult = new MaxLocScale (Core.minMaxLoc(result, new Mat()), scale, match_method);
-			matches.add(minMaxLocResult);
-			
-			//compare max to threshold
-			if (minMaxLocResult.maxVal > threshold) {
-				matchFound = true;//will break out of for loop
+	
+	public void startCamera()
+	{
+		if (!this.cameraActive)
+		{
+			// start the video capture
+			this.capture.open(cameraId);
+			if (this.capture.isOpened())
+			{
+				this.cameraActive = true;
+				// grab a frame every 33 ms (30 frames/sec)
+				Runnable frameGrabber = new Runnable() {
+					
+					@Override
+					public void run()
+					{
+						// effectively grab and process a single frame
+						Mat frame = grabFrame();
+						//find template in frame
+						Rect templateMatch = tempMatcher.findTemplate(frame);
+						Imgproc.rectangle(frame, templateMatch.tl(), templateMatch.br(), new Scalar(0,0,255));
+						
+						// convert and show the frame
+						Image imageToShow = Utils.mat2Image(frame);
+						updateImageView(camPanel, imageToShow);
+					}
+				};
+				
+				this.timer = Executors.newSingleThreadScheduledExecutor();
+				this.timer.scheduleAtFixedRate(frameGrabber, 0, 33, TimeUnit.MILLISECONDS);
 			}
-			
-			//output response for max scale - to visualize only
-			if (scale == 1.0) {
-				Core.normalize(result, result, 0, 1, Core.NORM_MINMAX, -1, new Mat());
-				//multiply result for viewing
-				Core.multiply(result, new Scalar(255), returnResult);
+			else
+			{
+				// log the error
+				System.err.println("Impossible to open the camera connection...");
 			}
-			
 		}
-		
-		//if a match is found, then match is last element in array
-		MaxLocScale bestMatch;
-		if(matchFound) {
-			bestMatch = matches.get(matches.size()-1);
+		else
+		{
+			// the camera is not active at this point
+			this.cameraActive = false;
+			// stop the timer
+			this.stopAcquisition();
 		}
-		else {
-			//sort array
-			Collections.sort(matches, (a, b) -> a.maxVal < b.maxVal ? 1 : a.maxVal == b.maxVal ? 0 : -1); 
-			//best match is first element in array
-			bestMatch = matches.get(0);
-		}
-		
-		//convert match location to full size coordinates
-		Point match = scalePoint(bestMatch.maxLoc,1/bestMatch.scale);
-		
-		//update text fields
-		match_output.setText(String.format("Match Rating = %13.3f%s     Time per frame: %d ", bestMatch.maxVal/1000000, matchFound ? "*" : " ", (System.nanoTime() - startTime)/1000000));
- 		scale_output.setText(String.format("Scale = %5.2f", bestMatch.scale));
-		
-		return new Rect(match, new Point(match.x + templateImg.cols()/bestMatch.scale, match.y + templateImg.rows()/bestMatch.scale));
 	}
 	
-	private Point scalePoint(Point p, double mult) {
-		return new Point(p.x * mult, p.y * mult);
-	}
 	
-	private void processImage(Mat img) {
-		long startTime = System.nanoTime();
-		
-		Mat response = new Mat();
-		Rect matchRect = findTemplate(this.testImg, this.templateImg, response);
 
-		//draw max rectangle
-		Imgproc.rectangle(this.testImg, matchRect.tl(), matchRect.br(), new Scalar(0,0,255));
-
-		//convert response to image and show
-		MatOfByte byteMat = new MatOfByte();
-		Imgcodecs.imencode(".bmp", response, byteMat);
-		Image imageToShow = new Image(new ByteArrayInputStream(byteMat.toArray()));
-		updateImageView(outputImgPanel, imageToShow);
-		
-		System.out.println("Execution of image processing: " + (System.nanoTime() - startTime)/1000000 + " ms");
-	}
-
-	
 	
 	/**
 	 * Get a frame from the opened video stream (if any)
@@ -247,13 +177,6 @@ public class FXHelloCVController
 			{
 				// read the current frame
 				this.capture.read(frame);
-				
-				// if the frame is not empty, process it
-				if (!frame.empty())
-				{
-//					Imgproc.cvtColor(frame, frame, Imgproc.COLOR_BGR2GRAY);
-				}
-				
 			}
 			catch (Exception e)
 			{
@@ -314,54 +237,5 @@ public class FXHelloCVController
 	}
 	
 
-	public void startCamera()
-	{
-		if (!this.cameraActive)
-		{
-			// start the video capture
-			this.capture.open(cameraId);
-			if (this.capture.isOpened())
-			{
-				this.cameraActive = true;
-				// grab a frame every 33 ms (30 frames/sec)
-				Runnable frameGrabber = new Runnable() {
-					
-					@Override
-					public void run()
-					{
-						// effectively grab and process a single frame
-						Mat frame = grabFrame();
-						
-						//find template in frame
-						
-						Rect templateMatch = findTemplate(frame, templateImg, new Mat());
-//						draw max rectangle
-						Imgproc.rectangle(frame, templateMatch.tl(), templateMatch.br(), new Scalar(0,0,255));
-						
-						
-						// convert and show the frame
-						Image imageToShow = Utils.mat2Image(frame);
-						updateImageView(camPanel, imageToShow);
-					}
-				};
-				
-				this.timer = Executors.newSingleThreadScheduledExecutor();
-				this.timer.scheduleAtFixedRate(frameGrabber, 0, 33, TimeUnit.MILLISECONDS);
-				
-			}
-			else
-			{
-				// log the error
-				System.err.println("Impossible to open the camera connection...");
-			}
-		}
-		else
-		{
-			// the camera is not active at this point
-			this.cameraActive = false;
-			// stop the timer
-			this.stopAcquisition();
-		}
-	}
 	
 }
