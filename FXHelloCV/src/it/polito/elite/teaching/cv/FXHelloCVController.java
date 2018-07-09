@@ -66,14 +66,25 @@ public class FXHelloCVController
 	// the id of the camera to be used
 	private static int cameraId = 0;
 	
-	TemplateMatcher tempMatcher = new TemplateMatcher();
+
+	private Mat testImg = new Mat();
+	SignFinder signFinder;
+	
 	
 	public void initialise() {
 		
+//		Playground p = new Playground();
+//		System.exit(0);
+		
 		//static test image
-		Mat testImg = tempMatcher.loadTestImage();
-		System.out.println("img dims: " + testImg.cols() + " x " + testImg.rows());
-		processSingleImage(testImg);
+		loadTestImage();
+		System.out.println("img dims: " + this.testImg.cols() + " x " + this.testImg.rows());
+		
+		//init sign finder with img dims
+//		signFinder = (SignFinder) new TemplateMatcher(this.testImg.rows(),this.testImg.cols());
+		signFinder = (SignFinder) new YamRectMatcher(this.testImg.rows(),this.testImg.cols());
+		
+		processSingleImage(this.testImg);
 		
 		//start camera
 		startCamera();
@@ -82,20 +93,30 @@ public class FXHelloCVController
 	private void processSingleImage(Mat img) {
 		long startTime = System.nanoTime();
 		
-		Mat response = new Mat(img.rows(), img.cols(), CvType.CV_8U);
+		Mat response = new Mat(img.rows(), img.cols(), CvType.CV_32FC1);
 		
 		try {
-			Rect matchRect = tempMatcher.findTemplate(img, response);
+			Rect matchRect = signFinder.findSign(img, response);
 			//draw max rectangle
 			Imgproc.rectangle(img, matchRect.tl(), matchRect.br(), new Scalar(0,0,255));
 			
-			
+			System.out.println(img.toString());
+			System.out.println(response.toString());
 			
 			//show result
 			Image imageToShow = Utils.mat2Image(img);
 			updateImageView(inputImgPanel, imageToShow);
 
-			//convert response to image and show
+//			Image imageToShow2 = Utils.mat2Image(response);
+//			updateImageView(inputImgPanel, imageToShow2);
+
+//			convert response to image and show
+			Mat temp1 = new Mat();
+			Core.normalize(response, temp1, 0, 1, Core.NORM_MINMAX);
+			Core.multiply(temp1, new Scalar(255.0), response);
+			Core.MinMaxLocResult mmlr = Core.minMaxLoc(response);
+			System.out.println("min = " + mmlr.minVal + " max = " + mmlr.maxVal);
+			
 			MatOfByte byteMat = new MatOfByte();
 			Imgcodecs.imencode(".bmp", response, byteMat);
 			imageToShow = new Image(new ByteArrayInputStream(byteMat.toArray()));
@@ -108,6 +129,16 @@ public class FXHelloCVController
 		}
 
 
+	}
+	
+	public void loadTestImage() {
+		this.testImg = Imgcodecs.imread("resources/scene4.jpg");
+		if (this.testImg == null) {
+			System.out.println("could not load image");
+		}
+		else {
+			System.out.println("Image loaded succesfully");
+		}
 	}
 
 	
@@ -130,8 +161,8 @@ public class FXHelloCVController
 						// effectively grab and process a single frame
 						Mat frame = grabFrame();
 						//find template in frame
-						Rect templateMatch = tempMatcher.findTemplate(frame);
-						Imgproc.rectangle(frame, templateMatch.tl(), templateMatch.br(), new Scalar(0,0,255));
+//						Rect templateMatch = signFinder.findSign(frame);
+//						Imgproc.rectangle(frame, templateMatch.tl(), templateMatch.br(), new Scalar(0,0,255));
 						
 						// convert and show the frame
 						Image imageToShow = Utils.mat2Image(frame);

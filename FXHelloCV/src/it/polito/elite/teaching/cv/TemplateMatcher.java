@@ -15,10 +15,8 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.utils.Converters;
 
 
-public class TemplateMatcher {
+public class TemplateMatcher implements SignFinder {
 	
-
-	private Mat testImg = new Mat();
 	private Mat templateImg = new Mat();
 	private Mat warpedTemplate = new Mat();
 	private Mat grey_testImg = new Mat();
@@ -33,15 +31,13 @@ public class TemplateMatcher {
 		createWarpedTemplate();
 	}
 	
-	public Mat loadTestImage() {
-		this.testImg = Imgcodecs.imread("resources/scene4.jpg");
-		if (this.testImg == null) {
-			System.out.println("could not load image");
-		}
-		else {
-			System.out.println("Image loaded succesfully");
-		}
-		return this.testImg;
+	public TemplateMatcher(int img_rows, int img_cols) {
+		loadTemplate();
+		createWarpedTemplate();
+		
+		grey_testImg = new Mat(img_rows, img_cols,CvType.CV_8UC1);
+		result = new Mat(img_rows, img_cols,CvType.CV_32FC1);
+		
 	}
 	
 	public Mat loadTemplate() {
@@ -95,11 +91,11 @@ public class TemplateMatcher {
 	}
 	
 
-	public Rect findTemplate(Mat inputImage) {
-		return findTemplate(inputImage, dummyMat);
+	public Rect findSign(Mat inputImage) {
+		return findSign(inputImage, dummyMat);
 	}
 	
-	public Rect findTemplate(Mat inputImage, Mat returnResult) {
+	public Rect findSign(Mat inputImage, Mat returnResult) {
 		
 //		long startTime = System.nanoTime();
 		int match_method = Imgproc.TM_CCOEFF;
