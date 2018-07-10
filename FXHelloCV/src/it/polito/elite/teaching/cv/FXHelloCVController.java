@@ -96,9 +96,16 @@ public class FXHelloCVController
 		Mat response = new Mat(img.rows(), img.cols(), CvType.CV_32FC1);
 		
 		try {
-			Rect matchRect = signFinder.findSign(img, response);
-			//draw max rectangle
-			Imgproc.rectangle(img, matchRect.tl(), matchRect.br(), new Scalar(0,0,255));
+			
+			// multiple rects
+			ArrayList<Rect> matchRects = signFinder.findSigns(img, response);
+			for (int i = 0; i < matchRects.size(); i++) {
+				Imgproc.rectangle(img, matchRects.get(i).tl(), matchRects.get(i).br(), new Scalar(255));
+			}
+			
+			//one rectangle
+//			Rect matchRect = signFinder.findSign(img, response);
+//			Imgproc.rectangle(img, matchRect.tl(), matchRect.br(), new Scalar(0,0,255));
 			
 			System.out.println(img.toString());
 			System.out.println(response.toString());
@@ -107,15 +114,13 @@ public class FXHelloCVController
 			Image imageToShow = Utils.mat2Image(img);
 			updateImageView(inputImgPanel, imageToShow);
 
-//			Image imageToShow2 = Utils.mat2Image(response);
-//			updateImageView(inputImgPanel, imageToShow2);
 
 //			convert response to image and show
 			Mat temp1 = new Mat();
 			Core.normalize(response, temp1, 0, 1, Core.NORM_MINMAX);
 			Core.multiply(temp1, new Scalar(255.0), response);
-			Core.MinMaxLocResult mmlr = Core.minMaxLoc(response);
-			System.out.println("min = " + mmlr.minVal + " max = " + mmlr.maxVal);
+//			Core.MinMaxLocResult mmlr = Core.minMaxLoc(response);
+//			System.out.println("min = " + mmlr.minVal + " max = " + mmlr.maxVal);
 			
 			MatOfByte byteMat = new MatOfByte();
 			Imgcodecs.imencode(".bmp", response, byteMat);

@@ -1,5 +1,7 @@
 package it.polito.elite.teaching.cv;
 
+import java.util.ArrayList;
+
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -15,17 +17,23 @@ public class YamRectMatcher implements SignFinder {
 	private Rect dummyRect = new Rect(new Point(0,0), new Point(5,5));
 	
 	private Rect[] template;
-	private final int templateSize = 50;
+	private final int templateSize = 40;
 	private Mat integ_img = new Mat();
 	private Mat rectMatchResponse = new Mat();
+	
+	private Mat thresResult;
+	private Mat thresResultInt;
+	private Mat coords = new Mat();
 	
 	
 	YamRectMatcher(){
 		
 	}
 	YamRectMatcher(int img_rows, int img_cols){
-		integ_img = new Mat(img_rows, img_cols, CvType.CV_32FC1);
+		integ_img = new Mat(img_rows + 1, img_cols + 1, CvType.CV_32FC1);
 		rectMatchResponse = new Mat(img_rows, img_cols, CvType.CV_32FC1);
+		thresResult = new Mat(img_rows, img_cols, CvType.CV_32FC1);
+		thresResultInt = new Mat(img_rows, img_cols, CvType.CV_8UC1);
 		this.template = createTemplate(templateSize);
 	}
 	
@@ -66,11 +74,7 @@ public class YamRectMatcher implements SignFinder {
 
 	@Override
 	public Rect findSign(Mat inputImage) {
-//		long startTime = System.nanoTime();
-//		System.out.println("Time per frame: " + (System.nanoTime() - startTime)/1000000 + " ms");
-		
 		Rect r = findSign(inputImage, dummyMat);
-		
 		return r;
 	}
 
@@ -79,12 +83,14 @@ public class YamRectMatcher implements SignFinder {
 	
 		try {
 			//only for colour input - convert to gray
-			Imgproc.cvtColor(inputImage, inputImage, Imgproc.COLOR_BGR2GRAY);
-		
+			if (inputImage.channels() == 3) {
+				Imgproc.cvtColor(inputImage, inputImage, Imgproc.COLOR_BGR2GRAY);
+			}
+			
 			Imgproc.integral(inputImage, this.integ_img);
 		
-			System.out.println("RR: rows = " + returnResult.rows() + " cols = " + returnResult.cols() + " chans = " + returnResult.channels() + " type= " + returnResult.type());
-			System.out.println("II: rows = " + this.integ_img.rows() + " cols = " + this.integ_img.cols() + " chans = " + this.integ_img.channels() + " type= " + this.integ_img.type());
+//			System.out.println("RR: rows = " + returnResult.rows() + " cols = " + returnResult.cols() + " chans = " + returnResult.channels() + " type= " + returnResult.type());
+//			System.out.println("II: rows = " + this.integ_img.rows() + " cols = " + this.integ_img.cols() + " chans = " + this.integ_img.channels() + " type= " + this.integ_img.type());
 			
 			rectanglePatternMatching(returnResult);
 			
@@ -94,6 +100,39 @@ public class YamRectMatcher implements SignFinder {
 		}
 		
 		return dummyRect;
+	}
+	
+
+	public ArrayList<Rect> findSigns(Mat inputImage, Mat returnResult) {
+		ArrayList<Rect> rects = new ArrayList<>();
+		final float THRESHOLD = 550.f;
+		
+		try {
+			//only for colour input - convert to gray
+			if (inputImage.channels() == 3) {
+				Imgproc.cvtColor(inputImage, inputImage, Imgproc.COLOR_BGR2GRAY);
+			}
+
+			Imgproc.integral(inputImage, this.integ_img);  //compute integral
+			rectanglePatternMatching(returnResult);  		//get response to rectangle pattern
+			
+			//find locations where response is bigger than threshold and create rectangles at these points
+			Imgproc.threshold(returnResult, thresResult, THRESHOLD, 1, Imgproc.THRESH_BINARY);
+			thresResult.convertTo(thresResultInt, 0);
+			Core.findNonZero(thresResultInt, coords);
+			
+			System.out.println("num peaks: " + coords.rows());
+			
+			for (int i = 0; i < coords.rows(); i++) {
+				rects.add(new Rect((int)(coords.get(i, 0)[0]), (int)(coords.get(i, 0)[1]), templateSize, templateSize));
+			}
+			
+			
+		} catch (Exception e) {
+			System.err.println("findSigns: " + e.getMessage());
+		}
+		
+		return rects;
 	}
 	
 	//fills the response matrix 
@@ -129,12 +168,13 @@ public class YamRectMatcher implements SignFinder {
 			for (int i = 0; i < 16; i+=2) {
 				//B 
 				Rect r = this.template[i];
-				float bSum = sumInRect(new Rect(r.x+x, r.y+y, r.width, r.height) ,this.integ_img);
+				float bSum = sumInRect(new Rect(r.x+x, r.y+y, r.width, r.height) ,this.integ_img) / (float)r.area();
 				//W
 				r = this.template[i+1];
-				float wSum = sumInRect(new Rect(r.x+x, r.y+y, r.width, r.height) ,this.integ_img);
+				float wSum = sumInRect(new Rect(r.x+x, r.y+y, r.width, r.height) ,this.integ_img) / (float)r.area();
 				
-				totalDiffs += Math.abs(bSum - wSum);
+//				totalDiffs += Math.abs(bSum - wSum);
+				totalDiffs += (wSum-bSum);
 			}
 			
 			//TODO - edge handling

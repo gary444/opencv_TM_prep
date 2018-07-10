@@ -1,59 +1,77 @@
 package it.polito.elite.teaching.cv;
 
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Rect;
 import org.opencv.imgproc.Imgproc;
 
 public class Playground {
+	
+	private Mat testMat;
+	private Mat coords = new Mat();
+	
+	private Mat convMat;
+	
 	public Playground(){
 		
-		testIntegralImage();
-	}
-	
-	private void testIntegralImage(){
-		
-		
-		
+		//create float matrix
 		int cols = 10;
 		int rows = 10;
-		
-		Mat testMat = new Mat (rows, cols, CvType.CV_8UC1);
+		testMat = new Mat (rows, cols, CvType.CV_32FC1);
 		//fill mat
 		for (int x = 0; x < cols; x++) {
 			for (int y = 0; y < rows; y++) {
-				testMat.put(y,x,y+x);
+				testMat.put(y,x,(float)(y+x)*100.f);
 			}
 		}
-		
 		System.out.println("original matrix");
 		System.out.println(testMat.dump());
-		
-		Mat integral_img = new Mat(rows+1,cols+1,CvType.CV_8UC1);
-		Imgproc.integral(testMat, integral_img);
+		System.out.println(testMat.toString());
 		
 		
-		System.out.println(sumInRect(new Rect(2,2,2,2), integral_img));
-		System.out.println(sumInRect(new Rect(0,8,2,2), integral_img));
-		System.out.println(sumInRect(new Rect(0,0,3,3), integral_img));
+		testThresholder();
 		
 		
 		
-		System.out.println("integral image matrix");
-		System.out.println(integral_img.dump());
+		
+		
+//		coords = new Mat(cols*rows, 1, CvType.CV_32SC2);
+//		System.out.println(coords.dump());
+		
+		
+//		testThresholder();
+	}
+	private void testThresholder() {
+		
+		//threshold float matrix
+		Mat thresMat = new Mat();
+		Imgproc.threshold(testMat, thresMat, 1000, 1, Imgproc.THRESH_BINARY);
+		
+		System.out.println("thresholded matrix:");
+		System.out.println(thresMat.dump());
+		System.out.println(thresMat.toString());
+		
+		//convert matrix
+		convMat = new Mat (testMat.rows(), testMat.cols(), CvType.CV_8UC1);
+		thresMat.convertTo(convMat, 0);
+		
+		System.out.println("converted matrix");
+		System.out.println(convMat.dump());
+		System.out.println(convMat.toString());
 		
 		
 		
+//		Core.findNonZero(thresMat, coords);
+		
+
+		
+
+//		System.out.println("non zero matrix:");
+//		System.out.println(coords.dump());
+
 		
 	}
-	
-	private double sumInRect (Rect r, Mat integral_img){
-		double a = integral_img.get(r.y, r.x)[0];
-		double b = integral_img.get(r.y, r.x+r.width)[0];
-		double c = integral_img.get(r.y + r.height, r.x)[0];
-		double d = integral_img.get(r.y + r.height, r.x+r.width)[0];
-		return a + d - b - c;
-	}
-	
+
 	
 }

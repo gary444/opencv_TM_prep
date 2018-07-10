@@ -167,7 +167,15 @@ public class TemplateMatcher implements SignFinder {
 		
 		return new Rect(match, new Point(match.x + templateImg.cols()/bestMatch.scale, match.y + templateImg.rows()/bestMatch.scale));
 	}
+	
 
+	public ArrayList<Rect> findSigns(Mat inputImage, Mat returnResult) {
+
+		//TODO - implement fully to return multiple rects
+		ArrayList<Rect> rects = new ArrayList<>();
+		rects.add(findSign(inputImage, returnResult));
+		return rects;
+	}
 	
 	private Point scalePoint(Point p, double mult) {
 		return new Point(p.x * mult, p.y * mult);
