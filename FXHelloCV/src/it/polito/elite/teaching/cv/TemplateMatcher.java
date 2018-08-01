@@ -169,6 +169,14 @@ public class TemplateMatcher implements SignFinder {
 	}
 	
 
+	public ArrayList<Rect> findSigns(Mat inputImage) {
+
+		//TODO - implement fully to return multiple rects
+		ArrayList<Rect> rects = new ArrayList<>();
+		rects.add(findSign(inputImage));
+		return rects;
+	}
+	
 	public ArrayList<Rect> findSigns(Mat inputImage, Mat returnResult) {
 
 		//TODO - implement fully to return multiple rects

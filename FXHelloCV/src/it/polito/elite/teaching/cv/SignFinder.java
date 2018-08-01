@@ -12,4 +12,6 @@ public interface SignFinder {
 	Rect findSign(Mat inputImage, Mat returnResult);
 	
 	ArrayList<Rect> findSigns(Mat inputImage, Mat returnResult);
+	
+	ArrayList<Rect> findSigns(Mat inputImage);
 }

@@ -163,15 +163,27 @@ public class FXHelloCVController
 					@Override
 					public void run()
 					{
+						
+						long startTime = System.nanoTime();
+						
 						// effectively grab and process a single frame
 						Mat frame = grabFrame();
 						//find template in frame
 //						Rect templateMatch = signFinder.findSign(frame);
 //						Imgproc.rectangle(frame, templateMatch.tl(), templateMatch.br(), new Scalar(0,0,255));
 						
+						// multiple rects
+						ArrayList<Rect> matchRects = signFinder.findSigns(frame);
+						for (int i = 0; i < matchRects.size(); i++) {
+							Imgproc.rectangle(frame, matchRects.get(i).tl(), matchRects.get(i).br(), new Scalar(255));
+						}
+						
 						// convert and show the frame
 						Image imageToShow = Utils.mat2Image(frame);
 						updateImageView(camPanel, imageToShow);
+						
+
+						System.out.println("Execution of single image processing: " + (System.nanoTime() - startTime)/1000000 + " ms");
 					}
 				};
 				

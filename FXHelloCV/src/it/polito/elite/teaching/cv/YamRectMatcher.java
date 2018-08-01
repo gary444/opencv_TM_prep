@@ -21,6 +21,7 @@ public class YamRectMatcher implements SignFinder {
 	private Mat integ_img = new Mat();
 	private Mat rectMatchResponse = new Mat();
 	
+	private Mat result;
 	private Mat thresResult;
 	private Mat thresResultInt;
 	private Mat coords = new Mat();
@@ -32,6 +33,7 @@ public class YamRectMatcher implements SignFinder {
 	YamRectMatcher(int img_rows, int img_cols){
 		integ_img = new Mat(img_rows + 1, img_cols + 1, CvType.CV_32FC1);
 		rectMatchResponse = new Mat(img_rows, img_cols, CvType.CV_32FC1);
+		result =  new Mat(img_rows, img_cols, CvType.CV_32FC1);
 		thresResult = new Mat(img_rows, img_cols, CvType.CV_32FC1);
 		thresResultInt = new Mat(img_rows, img_cols, CvType.CV_8UC1);
 		this.template = createTemplate(templateSize);
@@ -102,8 +104,8 @@ public class YamRectMatcher implements SignFinder {
 		return dummyRect;
 	}
 	
-
-	public ArrayList<Rect> findSigns(Mat inputImage, Mat returnResult) {
+	//returns a series of rectangles that describe possible rectangle locations
+	public ArrayList<Rect> findSigns(Mat inputImage) {
 		ArrayList<Rect> rects = new ArrayList<>();
 		final float THRESHOLD = 550.f;
 		
@@ -114,25 +116,34 @@ public class YamRectMatcher implements SignFinder {
 			}
 
 			Imgproc.integral(inputImage, this.integ_img);  //compute integral
-			rectanglePatternMatching(returnResult);  		//get response to rectangle pattern
+			rectanglePatternMatching(result);  				//get response to rectangle pattern
 			
 			//find locations where response is bigger than threshold and create rectangles at these points
-			Imgproc.threshold(returnResult, thresResult, THRESHOLD, 1, Imgproc.THRESH_BINARY);
+			Imgproc.threshold(result, thresResult, THRESHOLD, 1, Imgproc.THRESH_BINARY);
 			thresResult.convertTo(thresResultInt, 0);
 			Core.findNonZero(thresResultInt, coords);
 			
-			System.out.println("num peaks: " + coords.rows());
 			
 			for (int i = 0; i < coords.rows(); i++) {
 				rects.add(new Rect((int)(coords.get(i, 0)[0]), (int)(coords.get(i, 0)[1]), templateSize, templateSize));
 			}
 			
+//			print tests
+//			System.out.println("num peaks: " + coords.rows());
 			
 		} catch (Exception e) {
 			System.err.println("findSigns: " + e.getMessage());
 		}
 		
 		return rects;
+	}
+
+
+	//returns a series of rectangles that describe possible rectangle locations
+	//sets the 'funcResponse' mat as the result of the rectangle detection function
+	public ArrayList<Rect> findSigns(Mat inputImage, Mat funcResponse) {
+		result = funcResponse;
+		return findSigns(inputImage);
 	}
 	
 	//fills the response matrix 
@@ -146,8 +157,9 @@ public class YamRectMatcher implements SignFinder {
 			for (int x = 0; x < this.integ_img.cols() - templateSize; x++) {
 				for (int y = 0; y < this.integ_img.rows() - templateSize; y++) {
 
+//					response[0] = 0.5f;
 					response[0] = getResponseAt(x,y);
-					returnResult.put(y, x, response);
+//					returnResult.put(y, x, response);
 				}
 			}
 		} catch (Exception e) {
@@ -170,10 +182,13 @@ public class YamRectMatcher implements SignFinder {
 				Rect r = this.template[i];
 				float bSum = sumInRect(new Rect(r.x+x, r.y+y, r.width, r.height) ,this.integ_img) / (float)r.area();
 				//W
+				
+//				float wSum = 0.4f;
 				r = this.template[i+1];
 				float wSum = sumInRect(new Rect(r.x+x, r.y+y, r.width, r.height) ,this.integ_img) / (float)r.area();
 				
-//				totalDiffs += Math.abs(bSum - wSum);
+				
+				
 				totalDiffs += (wSum-bSum);
 			}
 			
@@ -187,10 +202,11 @@ public class YamRectMatcher implements SignFinder {
 	
 	//return sum of pixels within a given rectangle, for the given matrix
 	private float sumInRect (Rect r, Mat input_img){
-		double a = input_img.get(r.y, r.x)[0];
-		double b = input_img.get(r.y, r.x+r.width)[0];
-		double c = input_img.get(r.y + r.height, r.x)[0];
-		double d = input_img.get(r.y + r.height, r.x+r.width)[0];
+		double a = 0.0, b = 0.0, c = 0.0, d = 0.0;
+//		double a = input_img.get(r.y, r.x)[0];
+//		double b = input_img.get(r.y, r.x+r.width)[0];
+//		double c = input_img.get(r.y + r.height, r.x)[0];
+//		double d = input_img.get(r.y + r.height, r.x+r.width)[0];
 		return (float)(a + d - b - c);
 	}
 
